@@ -1,7 +1,6 @@
 #include "claves.h"
 #include <fcntl.h>        
 #include <sys/stat.h>
-#include <mqueue.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -9,28 +8,16 @@
 #include <netinet/in.h>
 #include <errno.h>
 #include <unistd.h>
+#include <lines.h>
+#include <string.h>
+#include <stdlib.h>
 
 // Consideramos el defecto de Linux
-#define NUM_MENSAJES 10
-#define NUM_THREADS 50
+# define NUM_MENSAJES 10
+# define NUM_THREADS 50
 # define MAX_SIZE 256
-
-
-/* PREGUNTAR AL PROFE SI AL USAR  THREADS BAJO DEMANDA SE PUEDE PONER LISTEN
-AL NUMERO DE THREADS PARA QUE SI LLEGAN MAS CLIENTES SE DESCARTEN Y TENGAN QUE VOLVER
-A PEDIR UN SITIO EN EL SERVER
-
-SI QUEREMOS USAR FUNCIONES LINES.C DADAS EN CLASE COMO NO PODEMOS INCLUIR EL HEADER
-LAS DECLARAMOS DE FORMA INDIVIDUAL EN CLIENTE Y SERVIDOR
-
-
-COMO DETERMINAR EL TAMAÑO DEL BUFFER A MANDAR ENTRE SERVIDOR Y PROXY CON LOS PARAMETROS
-ESCOGEMOS UN TAMAÑO GRANDE ARBITRARIO? O HAY OTRA FORMA
-
-RECOMIENDA USAR READLINE
-*/
-
-
+// Asumimos que cada número como máximo va a tener 10 dígitos
+# define MAX_V_VALUE2_SIZE 321
 /*
 CÓDIGOS DE OPERACIÓN:
 
@@ -147,19 +134,15 @@ void* tratar_peticion(void* peticion_cliente){
         }
 
         // Una vez preparada la respuesta, la envíamos
+        char cod_ejecucion[3] = {'\0'};
+        sprintf(cod_ejecucion,"%d",respuesta_a_enviar.resultado_operacion);
 
-        if(cola_cliente == -1){
-            perror("No se pudo abrir la cola del cliente. Por lo tanto, la respuesta no pudo ser procesada");
-
-        } else{
-            // Enviamos la respuesta al cliente y cerramos su cola
-            mq_send(cola_cliente,(const char *) &respuesta_a_enviar,sizeof(struct respuesta),0);
-            mq_close(cola_cliente);
-
-        }
-
-
+        sendMessage(sd,cod_ejecucion,strlen(cod_ejecucion));
+        
+        // Cerramos el socket al acabar con el cliente actual
+        close(sd);
     }
+    
     // Finaliza la ejecución del thread
     pthread_exit(0);
    
@@ -223,7 +206,7 @@ int main(int argc, char *argv[]){
         return -1;
     }
 
-    err = listen(sd, NUM_THREADS);
+    err = listen(sd,SOMAXCONN);
 
     if(err == -1){
         printf("Error en el listen\n");
@@ -299,81 +282,78 @@ int main(int argc, char *argv[]){
 
 void obtener_params(int sd,struct peticion *pet){
 
-    // char buffer[] ={key: hola\n 
-                    //N_value2: 56\n}
+    char buffer[MAX_V_VALUE2_SIZE];
+
+    // Recibimos el código de operación del cliente
+    readLine(sd,buffer,MAX_V_VALUE2_SIZE);
+
+    pet->codigo_operacion = atoi(buffer);
+   
+    // Recibimos la key del cliente
+    readLine(sd,buffer,MAX_V_VALUE2_SIZE);
+
+    strncpy(pet->key, buffer, MAX_SIZE - 1);
+    pet->key[MAX_SIZE - 1] = '\0';
+
+    // Ahora recibimos value_1
+
+    // Primero recibimos la key del cliente
+    readLine(sd,buffer,MAX_V_VALUE2_SIZE);
+
+    strncpy(pet->value_1, buffer, MAX_SIZE - 1);
+    pet->value_1[MAX_SIZE - 1] = '\0';
+
+    // Continuamos pasando el n_value2
     
-    // readLine(sd,)
+    readLine(sd,buffer,MAX_V_VALUE2_SIZE);
+
+    pet->N_value2 = atoi(buffer);
+
+    // Continuamos obteniendo el vector V_value2
+
+    readLine(sd,buffer,MAX_V_VALUE2_SIZE);
+
+    // Ahora lo parseamos para ir guardando los valores en el struct
 
 
+    char *tokens = strtok(buffer,"[],");
+    int i = 0;
 
+    while(tokens != NULL && i < pet->N_value2){
 
+        pet->V_value2[i] = strtof(tokens, NULL);
 
-}
+        // Obtenemos el siguiente número del array
+        tokens = strtok(NULL, "[],");
+        // Aumentamos la posición de i
+        i++;
+    }
 
+    // Ahora recibimos la información del paquete como un array de 3 elementos
 
-// Implementación de lines.c dada en clase
+    readLine(sd,buffer,MAX_V_VALUE2_SIZE);
 
-int sendMessage(int socket, char * buffer, int len)
-{
-	int r;
-	int l = len;
-		
+    tokens = strtok(buffer,"[],");
 
-	do {	
-		r = write(socket, buffer, l);
-		l = l -r;
-		buffer = buffer + r;
-	} while ((l>0) && (r>=0));
-	
-	if (r < 0)
-		return (-1);   /* fail */
-	else
-		return(0);	/* full length has been sent */
-}
+    for(int j = 0; j < 3; j++){
+        switch(j){
+            // Guardamos el parámetro en el paquete en distinto atributo
+            // en función de la iteración en la que estemos
+            case 0:
+                pet->value3.x = atoi(tokens);
+                break;
+            
+            case 1:
+                pet->value3.y = atoi(tokens);
+                break;
 
+            case 2:
+                pet->value3.z = atoi(tokens);
+                break;
+                
+    }
+    // Obtenemos el siguiente token
+    tokens = strtok(NULL,"[],");
+    }
 
-
-ssize_t readLine(int fd, void *buffer, size_t n)
-{
-	ssize_t numRead;  /* num of bytes fetched by last read() */
-	size_t totRead;	  /* total bytes read so far */
-	char *buf;
-	char ch;
-
-
-	if (n <= 0 || buffer == NULL) { 
-		errno = EINVAL;
-		return -1; 
-	}
-
-	buf = buffer;
-	totRead = 0;
-	
-	for (;;) {
-        	numRead = read(fd, &ch, 1);	/* read a byte */
-
-        	if (numRead == -1) {	
-            		if (errno == EINTR)	/* interrupted -> restart read() */
-                		continue;
-            	else
-			return -1;		/* some other error */
-        	} else if (numRead == 0) {	/* EOF */
-            		if (totRead == 0)	/* no byres read; return 0 */
-                		return 0;
-			else
-                		break;
-        	} else {			/* numRead must be 1 if we get here*/
-            		if (ch == '\n')
-                		break;
-            		if (ch == '\0')
-                		break;
-            		if (totRead < n - 1) {		/* discard > (n-1) bytes */
-				totRead++;
-				*buf++ = ch; 
-			}
-		} 
-	}
-	
-	*buf = '\0';
-    	return totRead;
 }
