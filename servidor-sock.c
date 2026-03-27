@@ -137,7 +137,7 @@ void* tratar_peticion(void* peticion_cliente){
         char cod_ejecucion[3] = {'\0'};
         sprintf(cod_ejecucion,"%d",respuesta_a_enviar.resultado_operacion);
 
-        sendMessage(sd,cod_ejecucion,strlen(cod_ejecucion));
+        sendMessage(sd,cod_ejecucion,strlen(cod_ejecucion) + 1);
         
         // Cerramos el socket al acabar con el cliente actual
         close(sd);
