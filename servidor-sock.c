@@ -57,10 +57,14 @@ pthread_cond_t no_vacio;
 pthread_mutex_t mfin;
 int fin = 0;
 
+// Declaraciones para poder referenciar las funciones sin haber sido desarrolladas
+int obtener_params(int sd, struct peticion *pet);
+void enviar_datos_get(int sd, struct peticion mi_peticion);
 
 void* tratar_peticion(void* peticion_cliente){
     struct peticion mi_peticion;
     struct respuesta respuesta_a_enviar;
+
     
     while(1){
         pthread_mutex_lock(&mi_mutex);
@@ -85,7 +89,11 @@ void* tratar_peticion(void* peticion_cliente){
         pthread_mutex_unlock(&mi_mutex);
 
         // Obtenemos los parámetros de la petición
-        obtener_params(sd, &mi_peticion);
+        if(obtener_params(sd, &mi_peticion) == -1){
+            // Este cliente no realiza su ejecución y se salta la petición
+            close(sd);
+            continue;
+        }
 
 
         // Aquí ya procesamos la petición
@@ -108,6 +116,8 @@ void* tratar_peticion(void* peticion_cliente){
 
                 // Caso get_value
                 respuesta_a_enviar.resultado_operacion = get_value(mi_peticion.key,mi_peticion.value_1,&mi_peticion.N_value2,mi_peticion.V_value2,&mi_peticion.value3);
+                
+
                 break;
 
             case 3:
@@ -138,6 +148,13 @@ void* tratar_peticion(void* peticion_cliente){
         sprintf(cod_ejecucion,"%d",respuesta_a_enviar.resultado_operacion);
 
         sendMessage(sd,cod_ejecucion,strlen(cod_ejecucion) + 1);
+
+        
+
+        if(mi_peticion.codigo_operacion == 2 && respuesta_a_enviar.resultado_operacion == 0){
+           // Enviamos los datos obtenidos solamente si estamos lidiando con el get
+            enviar_datos_get(sd,mi_peticion);
+        }
         
         // Cerramos el socket al acabar con el cliente actual
         close(sd);
@@ -280,80 +297,145 @@ int main(int argc, char *argv[]){
     pthread_mutex_destroy(&mfin);
 }
 
-void obtener_params(int sd,struct peticion *pet){
+int obtener_params(int sd,struct peticion *pet){
 
     char buffer[MAX_V_VALUE2_SIZE];
 
     // Recibimos el código de operación del cliente
-    readLine(sd,buffer,MAX_V_VALUE2_SIZE);
+    if(readLine(sd,buffer,MAX_V_VALUE2_SIZE) <= 0) return -1;
 
     pet->codigo_operacion = atoi(buffer);
-   
-    // Recibimos la key del cliente
-    readLine(sd,buffer,MAX_V_VALUE2_SIZE);
 
-    strncpy(pet->key, buffer, MAX_SIZE - 1);
-    pet->key[MAX_SIZE - 1] = '\0';
+    switch(pet->codigo_operacion){
 
-    // Ahora recibimos value_1
+        case 0:
+        // DESTROY no tiene parámetros
+        break;
 
-    // Primero recibimos la key del cliente
-    readLine(sd,buffer,MAX_V_VALUE2_SIZE);
+        case 4: // DELETE KEY
+        case 5: // EXIST
+        case 2: // GET_VALUE
+            // Estos tres casos solamente necesitan recibir la key
+            // Recibimos la key del cliente
+            if(readLine(sd,buffer,MAX_V_VALUE2_SIZE) <= 0) return -1;
 
-    strncpy(pet->value_1, buffer, MAX_SIZE - 1);
-    pet->value_1[MAX_SIZE - 1] = '\0';
+            strncpy(pet->key, buffer, MAX_SIZE - 1);
+            pet->key[MAX_SIZE - 1] = '\0';
 
-    // Continuamos pasando el n_value2
-    
-    readLine(sd,buffer,MAX_V_VALUE2_SIZE);
+            break;
 
-    pet->N_value2 = atoi(buffer);
+        case 1: // SET_VALUE
+        case 3: // MODIFY_VALUE
+            // Necesitan todos los parámetros
 
-    // Continuamos obteniendo el vector V_value2
+             // Recibimos la key del cliente
 
-    readLine(sd,buffer,MAX_V_VALUE2_SIZE);
+            if(readLine(sd,buffer,MAX_V_VALUE2_SIZE) <= 0) return -1;
 
-    // Ahora lo parseamos para ir guardando los valores en el struct
+            strncpy(pet->key, buffer, MAX_SIZE - 1);
+            pet->key[MAX_SIZE - 1] = '\0';
 
+            // Ahora recibimos value_1
 
-    char *tokens = strtok(buffer,"[],");
-    int i = 0;
+            // Primero recibimos la key del cliente
+            if(readLine(sd,buffer,MAX_V_VALUE2_SIZE) <= 0) return -1;
 
-    while(tokens != NULL && i < pet->N_value2){
+            strncpy(pet->value_1, buffer, MAX_SIZE - 1);
+            pet->value_1[MAX_SIZE - 1] = '\0';
 
-        pet->V_value2[i] = strtof(tokens, NULL);
-
-        // Obtenemos el siguiente número del array
-        tokens = strtok(NULL, "[],");
-        // Aumentamos la posición de i
-        i++;
-    }
-
-    // Ahora recibimos la información del paquete como un array de 3 elementos
-
-    readLine(sd,buffer,MAX_V_VALUE2_SIZE);
-
-    tokens = strtok(buffer,"[],");
-
-    for(int j = 0; j < 3; j++){
-        switch(j){
-            // Guardamos el parámetro en el paquete en distinto atributo
-            // en función de la iteración en la que estemos
-            case 0:
-                pet->value3.x = atoi(tokens);
-                break;
+            // Continuamos pasando el n_value2
             
-            case 1:
-                pet->value3.y = atoi(tokens);
-                break;
+            if(readLine(sd,buffer,MAX_V_VALUE2_SIZE) <= 0) return -1;
 
-            case 2:
-                pet->value3.z = atoi(tokens);
-                break;
-                
+            pet->N_value2 = atoi(buffer);
+
+            // Continuamos obteniendo el vector V_value2
+
+            if(readLine(sd,buffer,MAX_V_VALUE2_SIZE) <= 0) return -1;
+
+            // Ahora lo parseamos para ir guardando los valores en el struct
+
+
+            char *tokens = strtok(buffer,"[],");
+            int i = 0;
+
+            while(tokens != NULL && i < pet->N_value2){
+
+                pet->V_value2[i] = strtof(tokens, NULL);
+
+                // Obtenemos el siguiente número del array
+                tokens = strtok(NULL, "[],");
+                // Aumentamos la posición de i
+                i++;
+            }
+
+            // Ahora recibimos la información del paquete como un array de 3 elementos
+
+            if(readLine(sd, buffer, MAX_V_VALUE2_SIZE) <= 0) return -1;
+            
+            tokens = strtok(buffer, "[],");
+            if(tokens == NULL) return -1;
+            pet->value3.x = atoi(tokens);
+
+            tokens = strtok(NULL, "[],");
+            if(tokens == NULL) return -1;
+            pet->value3.y = atoi(tokens);
+
+            tokens = strtok(NULL, "[],");
+            if(tokens == NULL) return -1;
+            pet->value3.z = atoi(tokens);
+            break;
+
+        default:
+            printf("Código de operación no definido %d\n", pet->codigo_operacion);
+            return -1;
+
     }
-    // Obtenemos el siguiente token
-    tokens = strtok(NULL,"[],");
+    return 0; // Todo se parseó correctamente
+   
+}
+
+
+void enviar_datos_get(int sd, struct peticion mi_peticion){
+
+     sendMessage(sd, mi_peticion.value_1, strlen(mi_peticion.value_1) + 1);
+
+    char buffer[MAX_V_VALUE2_SIZE];
+    sprintf(buffer,"%d", mi_peticion.N_value2);
+    sendMessage(sd, buffer, strlen(buffer) + 1);
+
+
+    // Si es 0, mandamos un array vacio
+    if(mi_peticion.N_value2 == 0){
+        strcpy(buffer, "[]");
+    }else{
+
+        // Ponemos el corchete inicial para ahora ir añadiendo los números
+        strcpy(buffer, "[");
     }
 
+    for(int i = 0; i < mi_peticion.N_value2; i++){
+        char tmp[20];
+
+        if( i < mi_peticion.N_value2 - 1){
+            // Añadimos el nuevo número junto con una coma
+            sprintf(tmp, "%f,", mi_peticion.V_value2[i]);
+
+        }else{
+            sprintf(tmp, "%f]", mi_peticion.V_value2[i]);
+        }
+        strcat(buffer,tmp);
+    }
+
+    // Una vez qeu ya tengamos el V_value2, lo enviamos
+
+    sendMessage(sd, buffer, strlen(buffer) + 1);
+
+    // Enviamos value3
+
+    strcpy(buffer, "");
+    sprintf(buffer,"[%d,%d,%d]", mi_peticion.value3.x, mi_peticion.value3.y, mi_peticion.value3.z);
+    sendMessage(sd, buffer, strlen(buffer) + 1);
+    
+    
 }

@@ -1,8 +1,13 @@
-#include <mqueue.h>
+#include <stdlib.h>
 #include "claves.h"
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <netdb.h>
+#include<sys/socket.h>
+#include<arpa/inet.h>
+#include <netinet/in.h>
+#include <lines.h>
 #define MAXSIZE 256
 
 /*
@@ -27,249 +32,141 @@ struct peticion {
     struct Paquete value3;
 };
 
-struct respuesta {
-  
-    // Queremos que el usuario solamente sepa sobre el estado de la operación
-    int resultado_operacion;
-   
-};
 
 
-mqd_t cola_servidor;
-mqd_t cola_cliente;
-char nombre_cola[MAXSIZE];
+int obtener_credenciales_server(char **server_ip,char **puerto_server){
+
+    // Obtenemos la IP y el puerto del servidor
+    char *server_ip_env = getenv("IP_TUPLAS");
+
+    char *server_puerto_env = getenv("PORT_TUPLAS");
 
 
-int crear_cola(void){
+    if(server_ip_env != NULL && server_puerto_env != NULL){
+        
+        *server_ip = server_ip_env;
 
-    struct mq_attr atributos;
+        // Convertimos el puerto a número
+        *puerto_server = server_puerto_env;
+        return 0;
+    }
 
-    atributos.mq_maxmsg = 1;
-    atributos.mq_msgsize = sizeof(struct respuesta);
+    return -1;
+}
 
-    sprintf(nombre_cola,"/cola_cliente-%d",getpid());
+int crear_conexion_server(){
+    char *ip_server;
+    char *puerto_server;
 
-    cola_cliente = mq_open(nombre_cola,O_CREAT|O_RDONLY,0666,&atributos);
-
-    if(cola_cliente == -1){
-        perror("No se pudo abrir la cola del cliente");
+    if(obtener_credenciales_server(&ip_server, &puerto_server) != 0){
+        printf("No se pudieron obtener las credenciales del servidor\n");
+        // CODIGO DE ERROR AL NO ENCONTRAR CREDENCIALES DEL SERVER
         return -1;
     }
 
-    cola_servidor = mq_open("/cola-server",O_WRONLY);
+    // Creamos el socket
+   int sd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+   if(sd == -1){
+    printf("El socket no se pudo crear correctamente\n");
+    return -1;
+   }
 
-    if(cola_servidor == -1){
-        perror("No se pudo abrir la cola del servidor");
-        return -1;
+    // Ahora podemos comenzar a establecer la conexion
 
-    }
+   struct hostent *host;
+   struct sockaddr_in server_addr;
 
-    return 0;
+   bzero((char *) &server_addr, sizeof(server_addr));
+
+   server_addr.sin_family = AF_INET;    
+   server_addr.sin_port = htons(atoi(puerto_server));
+
+   // Con inet_aton podemos comprobar si la notacion es decimal o dominio-punto
+
+   if(inet_aton(ip_server,&server_addr.sin_addr) == 0){
+        // inet_aton devuelve 0 si la dirección no es formato decimal punto, intentamos dominio punto
+        host = gethostbyname(ip_server);
+
+        if(host == NULL){
+            printf("Error al obtener la dirección del servidor\n");
+            close(sd);
+            return -1;
+        }
+        // Guardamos la dirección obtenida
+        memcpy(&server_addr.sin_addr,host->h_addr_list[0],host->h_length);
+   }
+
+
+   if(connect(sd,(struct sockaddr *)&server_addr, sizeof(server_addr)) < 0){
+    printf("Error en la conexión\n");
+    close(sd);
+    return -1;
+
+   }
+
+   return sd;
 }
 
-
-int cerrar_cola(void){
-
-    mq_close(cola_servidor);
-    mq_close(cola_cliente);
-
-    return 0;
-
-
-}
 
 int destroy(){
 
-    crear_cola();
-    struct peticion pet;
-    struct respuesta res;
-    pet.codigo_operacion = 0;
-    strcpy(pet.cola_cliente,nombre_cola);
-
-    if(mq_send(cola_servidor,(const char *)&pet,sizeof(struct peticion),0) == -1){
-
-        cerrar_cola();
-        perror("No se ha podido enviar la peticion");
+    int sd = crear_conexion_server();
+    if( sd == -1){
+        // Hubo algún error durante la creación del socket
         return -2;
     }
 
-    if(mq_receive(cola_cliente,(char *)&res,sizeof(struct respuesta),0) == -1){
+    // Enviamos los datos al servidor para que realize su funcion
+    char cod_operacion[2] = "0";
 
-        cerrar_cola();
-        perror("No se ha podido recibir la respuesta del destroy");
+    char respuesta[3] = "";
+
+    //Mandamos la instrucción a realizar
+    if(sendMessage(sd,cod_operacion,strlen(cod_operacion) + 1) == -1){
+        close(sd);
         return -2;
     }
 
-    cerrar_cola();
-    return res.resultado_operacion;
+    // Esperamos a la obtención de la respuesta
+    if(readLine(sd,respuesta,3) <= 0){
+        close(sd);
+        return -2;
+    }
 
+    // Cerramos el socket
+    close(sd);
 
+    // Devolvemos el código de resultado
+    return atoi(respuesta);
 }
 
 int set_value(char *key, char *value1, int N_value2, float *V_value2, struct Paquete value3){
 
-    crear_cola();
-
-    struct peticion pet;
-    struct respuesta res;
-    pet.codigo_operacion = 1;
-    strcpy(pet.cola_cliente,nombre_cola);
-    strcpy(pet.key,key);
-    strcpy(pet.value_1,value1);
-    if(N_value2 > 32 || N_value2 < 0){
-
-        return -1;
-    }
-    pet.N_value2 = N_value2;
-    memcpy(pet.V_value2, V_value2, sizeof(float) * N_value2);
-    pet.value3 = value3;
-
-
-    if(mq_send(cola_servidor,(const char *)&pet,sizeof(struct peticion),0) == -1){
-
-        cerrar_cola();
-        perror("No se ha podido enviar la peticion");
-        return -2;
-    }
-
-    if(mq_receive(cola_cliente,(char *)&res,sizeof(struct respuesta),0) == -1){
-
-        cerrar_cola();
-        perror("No se ha podido recibir la respuesta del set_value");
-        return -2;
-    }
-
-    cerrar_cola();
-    return res.resultado_operacion;
 
 }
 
 int get_value(char *key, char *value1, int *N_value2, float *V_value2, struct Paquete *value3){
 
-    crear_cola();
-
-    struct peticion pet;
-    struct respuesta res;
-    pet.codigo_operacion = 2;
-    strcpy(pet.cola_cliente,nombre_cola);
-    strcpy(pet.key,key);
-
-    if(mq_send(cola_servidor,(const char *)&pet,sizeof(struct peticion),0) == -1){
-
-        cerrar_cola();
-        perror("No se ha podido enviar la peticion");
-        return -2;
-    }
-
-    if(mq_receive(cola_cliente,(char *)&res,sizeof(struct respuesta),0) == -1){
-
-        cerrar_cola();
-        perror("No se ha podido recibir la respuesta del get_value");
-        return -2;
-    }
-
-    cerrar_cola();
-    return res.resultado_operacion;
-
+    
 
 }
 
 int modify_value(char *key, char *value1, int N_value2, float *V_value2, struct Paquete value3){
 
-    crear_cola();
-
-    struct peticion pet;
-    struct respuesta res;
-    pet.codigo_operacion = 3;
-    strcpy(pet.cola_cliente,nombre_cola);
-    strcpy(pet.key,key);
-    strcpy(pet.value_1,value1);
-    pet.N_value2 = N_value2;
-    if(N_value2 > 32 || N_value2 < 0){
-        return -1;
-    }
-    memcpy(pet.V_value2, V_value2, sizeof(float) * N_value2);
-    pet.value3 = value3;
-
-
-    if(mq_send(cola_servidor,(const char *)&pet,sizeof(struct peticion),0) == -1){
-
-        cerrar_cola();
-        perror("No se ha podido enviar la peticion");
-        return -2;
-    }
-
-    if(mq_receive(cola_cliente,(char *)&res,sizeof(struct respuesta),0) == -1){
-
-        cerrar_cola();
-        perror("No se ha podido recibir la respuesta del modify_value");
-        return -2;
-    }
-
-    cerrar_cola();
-    return res.resultado_operacion;
 
 }
 
 
 int delete_key(char *key){
 
-    crear_cola();
-
-    struct peticion pet;
-    struct respuesta res;
-    pet.codigo_operacion = 4;
-    strcpy(pet.cola_cliente,nombre_cola);
-    strcpy(pet.key,key);
     
-
-    if(mq_send(cola_servidor,(const char *)&pet,sizeof(struct peticion),0) == -1){
-
-        cerrar_cola();
-        perror("No se ha podido enviar la peticion");
-        return -2;
-    }
-
-    if(mq_receive(cola_cliente,(char *)&res,sizeof(struct respuesta),0) == -1){
-
-        cerrar_cola();
-        perror("No se ha podido recibir la respuesta del delete_key");
-        return -2;
-    }
-
-    cerrar_cola();
-    return res.resultado_operacion;
 
 }
 
 
 int exist(char *key){
 
-    crear_cola();
-
-    struct peticion pet;
-    struct respuesta res;
-    pet.codigo_operacion = 5;
-    strcpy(pet.cola_cliente,nombre_cola);
-    strcpy(pet.key,key);
     
-
-    if(mq_send(cola_servidor,(const char *)&pet,sizeof(struct peticion),0) == -1){
-
-        cerrar_cola();
-        perror("No se ha podido enviar la peticion");
-        return -2;
-    }
-
-    if(mq_receive(cola_cliente,(char *)&res,sizeof(struct respuesta),0) == -1){
-
-        cerrar_cola();
-        perror("No se ha podido recibir la respuesta del delete_key");
-        return -2;
-    }
-
-    cerrar_cola();
-    return res.resultado_operacion;
 
 }
 
