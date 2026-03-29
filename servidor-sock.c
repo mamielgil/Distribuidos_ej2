@@ -16,8 +16,10 @@
 # define NUM_MENSAJES 10
 # define NUM_THREADS 50
 # define MAX_SIZE 256
-// Asumimos que cada número como máximo va a tener 10 dígitos
-# define MAX_V_VALUE2_SIZE 321
+
+// Seleccionamos un tamaño grande para poder almacenar 
+// el vector V_value2
+# define MAX_V_VALUE2_SIZE 1024
 /*
 CÓDIGOS DE OPERACIÓN:
 

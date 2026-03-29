@@ -8,8 +8,10 @@
 #include<arpa/inet.h>
 #include <netinet/in.h>
 #include <lines.h>
-// 
-# define MAX_V_VALUE2_SIZE 321
+
+// Seleccionamos un tamaño grande para poder almacenar 
+// el vector V_value2
+# define MAX_V_VALUE2_SIZE 1024
 
 /*
 CÓDIGOS DE OPERACIÓN:
@@ -21,9 +23,6 @@ CÓDIGOS DE OPERACIÓN:
 4 -> DELETE_KEY
 5 -> EXIST
 */
-
-
-
 
 
 int obtener_credenciales_server(char **server_ip,char **puerto_server){
@@ -109,7 +108,7 @@ int destroy(){
     }
 
     // Enviamos los datos al servidor para que realize su funcion
-    char cod_operacion[2] = "0";
+    char cod_operacion[3] = "0";
 
     char respuesta[3] = "";
 
@@ -141,7 +140,7 @@ int set_value(char *key, char *value1, int N_value2, float *V_value2, struct Paq
         return -2;
     }
 
-    char cod_operacion[2] = "1";
+    char cod_operacion[3] = "1";
 
     //Enviamos el código de operación
     if(sendMessage(sd,cod_operacion, strlen(cod_operacion) + 1) == -1){
@@ -228,7 +227,7 @@ int get_value(char *key, char *value1, int *N_value2, float *V_value2, struct Pa
         return -2;
     }
 
-    char cod_operacion[2] = "2";
+    char cod_operacion[3] = "2";
 
     //Enviamos el código de operación
     if(sendMessage(sd,cod_operacion, strlen(cod_operacion) + 1) == -1){
@@ -345,22 +344,156 @@ int get_value(char *key, char *value1, int *N_value2, float *V_value2, struct Pa
 }
 
 int modify_value(char *key, char *value1, int N_value2, float *V_value2, struct Paquete value3){
-    // Primero iniciamos la conexión
+     
+    // Enviamos todos los parámetros
+    int sd = crear_conexion_server();
+
+    if(sd == -1){
+        // Hubo algún error durante la creación de la conexión
+        return -2;
+    }
+
+    char cod_operacion[3] = "3";
+
+    //Enviamos el código de operación
+    if(sendMessage(sd,cod_operacion, strlen(cod_operacion) + 1) == -1){
+        close(sd);
+        return -2;
+    }
+
+    // Enviamos la key
+    if(sendMessage(sd,key,strlen(key) + 1) == -1){
+        close(sd);
+        return -2;
+    }
+
+    // Enviamos el valor 1
+
+    if(sendMessage(sd,value1,strlen(value1) + 1) == -1){
+        close(sd);
+        return -2;
+    }
+
+    // Enviamos el N_value2
+    if(N_value2 > 32 || N_value2 <= 0){
+        // El error de N_value2 es incorrecto
+        close(sd);
+        return -2;
+    }
+    char buffer[MAX_V_VALUE2_SIZE];
+    strcpy(buffer,"");
+
+    // Guardamos el número en el buffer
+    sprintf(buffer,"%d",N_value2);
+
+    sendMessage(sd, buffer, strlen(buffer) + 1);
+
+    // Enviamos V_value2( enviamos tantos floats como indica N_value2)
+
+    strcpy(buffer, "[");
+
+    for(int i = 0; i < N_value2; i++){
+        char tmp[20];
+        strcpy(tmp,"");
+        if(i != N_value2 - 1){
+            // Si no es la última iteración, añadimos el número separado por una coma
+            sprintf(tmp, "%f,",V_value2[i]);
+        }else{
+            sprintf(tmp, "%f]",V_value2[i]);
+        }
+        strcat(buffer, tmp);
+    }
+
+    // Una vez ya obtenido el buffer, lo enviamos
+
+    sendMessage(sd,buffer, strlen(buffer) + 1);
+
+    // Por último enviamos value3 en formato de array de tres dígitos
+
+    strcpy(buffer, "");
+
+    sprintf(buffer,"[%d,%d,%d]",value3.x,value3.y,value3.z);
+
+    sendMessage(sd,buffer, strlen(buffer) + 1);
+
+    // Una vez enviado todo, esperamos a la respuesta del servidor
+
+    strcpy(buffer, "");
+
+    if(readLine(sd,buffer,3) < 0){
+        close(sd);
+        return -2;
+    }
+
+    // Devolvemos el código de ejecución
+    close(sd);
+    return atoi(buffer);
 
 }
 
 
 int delete_key(char *key){
+    // En el delete_key solamente necesitamos enviar la key
 
+    int sd = crear_conexion_server();
+    if(sd == -1){
+        return -2;
+    }
+
+    // Ahora enviamos el código de operación
+    char cod_op[3] = "4"; 
+    sendMessage(sd,cod_op,3);
+
+    // Ahora enviamos la key a borrar
+    char buffer[MAX_V_VALUE2_SIZE];
+    strcpy(buffer,key);
+    sendMessage(sd,buffer,strlen(buffer) + 1);
+
+    // Una vez enviada la key, recibimos el código de ejecucion del server
+    strcpy(buffer, "");
     
+    if(readLine(sd,buffer,3) < 0){
+        // Hubo un error en la obtención del resultado
+        close(sd);
+        return -2;
+    }
+
+    close(sd);
+    // Devolvemos el resultado
+    return atoi(buffer);
 
 }
 
 
 int exist(char *key){
+    // En el exist solamente necesitamos enviar la key
 
+    int sd = crear_conexion_server();
+    if(sd == -1){
+        return -2;
+    }
+
+    // Ahora enviamos el código de operación
+    char cod_op[3] = "5"; 
+    sendMessage(sd,cod_op,3);
+
+    // Ahora enviamos la key a borrar
+    char buffer[MAX_V_VALUE2_SIZE];
+    strcpy(buffer,key);
+    sendMessage(sd,buffer,strlen(buffer) + 1);
+
+    // Una vez enviada la key, recibimos el código de ejecucion del server
+    strcpy(buffer, "");
     
+    if(readLine(sd,buffer,3) < 0){
+        // Hubo un error en la obtención del resultado
+        close(sd);
+        return -2;
+    }
 
+    close(sd);
+    // Devolvemos el resultado
+    return atoi(buffer);
 }
 
 
