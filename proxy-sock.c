@@ -165,7 +165,7 @@ int set_value(char *key, char *value1, int N_value2, float *V_value2, struct Paq
     if(N_value2 > 32 || N_value2 <= 0){
         // El error de N_value2 es incorrecto
         close(sd);
-        return -2;
+        return -1;
     }
     char buffer[MAX_V_VALUE2_SIZE];
     strcpy(buffer,"");
@@ -378,7 +378,7 @@ int modify_value(char *key, char *value1, int N_value2, float *V_value2, struct 
     if(N_value2 > 32 || N_value2 <= 0){
         // El error de N_value2 es incorrecto
         close(sd);
-        return -2;
+        return -1;
     }
     char buffer[MAX_V_VALUE2_SIZE];
     strcpy(buffer,"");
@@ -442,7 +442,7 @@ int delete_key(char *key){
 
     // Ahora enviamos el código de operación
     char cod_op[3] = "4"; 
-    sendMessage(sd,cod_op,3);
+    sendMessage(sd,cod_op,strlen(cod_op) + 1);
 
     // Ahora enviamos la key a borrar
     char buffer[MAX_V_VALUE2_SIZE];
@@ -475,7 +475,7 @@ int exist(char *key){
 
     // Ahora enviamos el código de operación
     char cod_op[3] = "5"; 
-    sendMessage(sd,cod_op,3);
+    sendMessage(sd,cod_op,strlen(cod_op) + 1);
 
     // Ahora enviamos la key a borrar
     char buffer[MAX_V_VALUE2_SIZE];
