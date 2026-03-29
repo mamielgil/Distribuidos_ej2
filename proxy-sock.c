@@ -8,7 +8,8 @@
 #include<arpa/inet.h>
 #include <netinet/in.h>
 #include <lines.h>
-#define MAXSIZE 256
+// 
+# define MAX_V_VALUE2_SIZE 321
 
 /*
 CÓDIGOS DE OPERACIÓN:
@@ -21,16 +22,7 @@ CÓDIGOS DE OPERACIÓN:
 5 -> EXIST
 */
 
-struct peticion {
-    // La información que conforma la petición.
-    int codigo_operacion;
-    char cola_cliente[MAXSIZE];
-    char key[MAXSIZE];
-    char value_1[MAXSIZE];
-    float V_value2[32];
-    int N_value2;
-    struct Paquete value3;
-};
+
 
 
 
@@ -128,7 +120,7 @@ int destroy(){
     }
 
     // Esperamos a la obtención de la respuesta
-    if(readLine(sd,respuesta,3) <= 0){
+    if(readLine(sd,respuesta,3) < 0){
         close(sd);
         return -2;
     }
@@ -141,18 +133,219 @@ int destroy(){
 }
 
 int set_value(char *key, char *value1, int N_value2, float *V_value2, struct Paquete value3){
+    // Enviamos todos los parámetros
+    int sd = crear_conexion_server();
 
+    if(sd == -1){
+        // Hubo algún error durante la creación de la conexión
+        return -2;
+    }
+
+    char cod_operacion[2] = "1";
+
+    //Enviamos el código de operación
+    if(sendMessage(sd,cod_operacion, strlen(cod_operacion) + 1) == -1){
+        close(sd);
+        return -2;
+    }
+
+    // Enviamos la key
+    if(sendMessage(sd,key,strlen(key) + 1) == -1){
+        close(sd);
+        return -2;
+    }
+
+    // Enviamos el valor 1
+
+    if(sendMessage(sd,value1,strlen(value1) + 1) == -1){
+        close(sd);
+        return -2;
+    }
+
+    // Enviamos el N_value2
+    if(N_value2 > 32 || N_value2 <= 0){
+        // El error de N_value2 es incorrecto
+        close(sd);
+        return -2;
+    }
+    char buffer[MAX_V_VALUE2_SIZE];
+    strcpy(buffer,"");
+
+    // Guardamos el número en el buffer
+    sprintf(buffer,"%d",N_value2);
+
+    sendMessage(sd, buffer, strlen(buffer) + 1);
+
+    // Enviamos V_value2( enviamos tantos floats como indica N_value2)
+
+    strcpy(buffer, "[");
+
+    for(int i = 0; i < N_value2; i++){
+        char tmp[20];
+        strcpy(tmp,"");
+        if(i != N_value2 - 1){
+            // Si no es la última iteración, añadimos el número separado por una coma
+            sprintf(tmp, "%f,",V_value2[i]);
+        }else{
+            sprintf(tmp, "%f]",V_value2[i]);
+        }
+        strcat(buffer, tmp);
+    }
+
+    // Una vez ya obtenido el buffer, lo enviamos
+
+    sendMessage(sd,buffer, strlen(buffer) + 1);
+
+    // Por último enviamos value3 en formato de array de tres dígitos
+
+    strcpy(buffer, "");
+
+    sprintf(buffer,"[%d,%d,%d]",value3.x,value3.y,value3.z);
+
+    sendMessage(sd,buffer, strlen(buffer) + 1);
+
+    // Una vez enviado todo, esperamos a la respuesta del servidor
+
+    strcpy(buffer, "");
+
+    if(readLine(sd,buffer,3) < 0){
+        close(sd);
+        return -2;
+    }
+
+    // Devolvemos el código de ejecución
+    close(sd);
+    return atoi(buffer);
 
 }
 
 int get_value(char *key, char *value1, int *N_value2, float *V_value2, struct Paquete *value3){
-
     
+    // En el caso del get, solamente enviamos el código de operación y la key y recibimos los valores
+    int sd = crear_conexion_server();
+    if(sd == -1){
+        // Hubo algún error durante la creación del socket
+        return -2;
+    }
+
+    char cod_operacion[2] = "2";
+
+    //Enviamos el código de operación
+    if(sendMessage(sd,cod_operacion, strlen(cod_operacion) + 1) == -1){
+        close(sd);
+        return -2;
+    }
+
+    // Enviamos la key
+    if(sendMessage(sd,key,strlen(key) + 1) == -1){
+        close(sd);
+        return -2;
+    }
+
+    // Ahora recibimos el código de ejecución y después los valores recuperados con el get
+
+    char cod_res[3];
+    char buffer[MAX_V_VALUE2_SIZE];
+    strcpy(buffer,"");
+    strcpy(cod_res,"");
+
+    // Recibimos el código de ejecución
+    if(readLine(sd,cod_res,3) < 0){
+        close(sd);
+        return -2;
+    }
+
+    if(atoi(cod_res) != 0){
+        // No se pudo realizar el get por lo que no debemos leer el resto de valores
+        close(sd);
+        return atoi(cod_res);
+    }
+
+    // Recibimos valores del get
+
+    // Recibimos el valor 1
+    if(readLine(sd,buffer,MAX_V_VALUE2_SIZE - 1) < 0){
+        close(sd);
+        return -2;
+    }
+
+    strcpy(value1,buffer);
+
+    strcpy(buffer,"");
+
+    // Recibimos N_value2
+
+    if(readLine(sd,buffer,MAX_V_VALUE2_SIZE - 1) < 0){
+        close(sd);
+        return -2;
+    }
+
+    // Guardamos el N_value2 obtenido
+    *N_value2 = atoi(buffer);
+
+    // Recibimos ahora V_value2
+
+    strcpy(buffer, "");
+    
+    if(readLine(sd,buffer,MAX_V_VALUE2_SIZE - 1) < 0){
+        close(sd);
+        return -2;
+    }
+
+    char *tokens = strtok(buffer,"[],");
+    int i = 0;
+
+    // Lo copiamos al array dado
+    while(tokens != NULL && i < *N_value2){
+
+        V_value2[i] = strtof(tokens, NULL);
+
+        // Obtenemos el siguiente número del array
+        tokens = strtok(NULL, "[],");
+        // Aumentamos la posición de i
+        i++;
+    }
+
+    // Por último recibimos el paquete
+
+    strcpy(buffer,"");
+
+    if(readLine(sd,buffer,MAX_V_VALUE2_SIZE - 1) < 0){
+        close(sd);
+        return -2;
+    }
+
+    tokens = strtok(buffer, "[],");
+
+    if(tokens == NULL){
+        close(sd);
+        return -2;
+    }
+
+    value3->x = atoi(tokens);
+
+    tokens = strtok(NULL, "[],");
+    if(tokens == NULL){
+        close(sd);
+        return -2;
+    }
+    value3->y = atoi(tokens);
+
+    tokens = strtok(NULL, "[],");
+    if(tokens == NULL){
+        close(sd);
+        return -2;
+    }
+    value3->z = atoi(tokens);
+
+    // Ya están obtenidos todos los valores por lo que finalizamos la conexión
+    close(sd);
+    return atoi(cod_res);
 
 }
 
 int modify_value(char *key, char *value1, int N_value2, float *V_value2, struct Paquete value3){
-
+    // Primero iniciamos la conexión
 
 }
 

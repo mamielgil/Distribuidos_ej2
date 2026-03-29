@@ -49,7 +49,7 @@ struct respuesta {
 };
 
 int buffer_socket[NUM_THREADS];
-int n_elementos;
+int n_elementos = 0;
 int pos_servicio = 0;
 pthread_mutex_t mi_mutex;
 pthread_cond_t no_lleno;
@@ -75,6 +75,7 @@ void* tratar_peticion(void* peticion_cliente){
             // esperando, hacemos que finalice su ejecución
             if(fin == 1){
                 printf("Finalizando el servicio\n");
+                pthread_mutex_unlock(&mi_mutex);
                 pthread_exit(0);
             }
 
@@ -302,7 +303,7 @@ int obtener_params(int sd,struct peticion *pet){
     char buffer[MAX_V_VALUE2_SIZE];
 
     // Recibimos el código de operación del cliente
-    if(readLine(sd,buffer,MAX_V_VALUE2_SIZE) <= 0) return -1;
+    if(readLine(sd,buffer,MAX_V_VALUE2_SIZE) < 0) return -1;
 
     pet->codigo_operacion = atoi(buffer);
 
@@ -317,7 +318,7 @@ int obtener_params(int sd,struct peticion *pet){
         case 2: // GET_VALUE
             // Estos tres casos solamente necesitan recibir la key
             // Recibimos la key del cliente
-            if(readLine(sd,buffer,MAX_V_VALUE2_SIZE) <= 0) return -1;
+            if(readLine(sd,buffer,MAX_V_VALUE2_SIZE) < 0) return -1;
 
             strncpy(pet->key, buffer, MAX_SIZE - 1);
             pet->key[MAX_SIZE - 1] = '\0';
@@ -330,7 +331,7 @@ int obtener_params(int sd,struct peticion *pet){
 
              // Recibimos la key del cliente
 
-            if(readLine(sd,buffer,MAX_V_VALUE2_SIZE) <= 0) return -1;
+            if(readLine(sd,buffer,MAX_V_VALUE2_SIZE) < 0) return -1;
 
             strncpy(pet->key, buffer, MAX_SIZE - 1);
             pet->key[MAX_SIZE - 1] = '\0';
@@ -338,20 +339,20 @@ int obtener_params(int sd,struct peticion *pet){
             // Ahora recibimos value_1
 
             // Primero recibimos la key del cliente
-            if(readLine(sd,buffer,MAX_V_VALUE2_SIZE) <= 0) return -1;
+            if(readLine(sd,buffer,MAX_V_VALUE2_SIZE) < 0) return -1;
 
             strncpy(pet->value_1, buffer, MAX_SIZE - 1);
             pet->value_1[MAX_SIZE - 1] = '\0';
 
             // Continuamos pasando el n_value2
             
-            if(readLine(sd,buffer,MAX_V_VALUE2_SIZE) <= 0) return -1;
+            if(readLine(sd,buffer,MAX_V_VALUE2_SIZE) < 0) return -1;
 
             pet->N_value2 = atoi(buffer);
 
             // Continuamos obteniendo el vector V_value2
 
-            if(readLine(sd,buffer,MAX_V_VALUE2_SIZE) <= 0) return -1;
+            if(readLine(sd,buffer,MAX_V_VALUE2_SIZE) < 0) return -1;
 
             // Ahora lo parseamos para ir guardando los valores en el struct
 
@@ -371,7 +372,7 @@ int obtener_params(int sd,struct peticion *pet){
 
             // Ahora recibimos la información del paquete como un array de 3 elementos
 
-            if(readLine(sd, buffer, MAX_V_VALUE2_SIZE) <= 0) return -1;
+            if(readLine(sd, buffer, MAX_V_VALUE2_SIZE) < 0) return -1;
             
             tokens = strtok(buffer, "[],");
             if(tokens == NULL) return -1;
@@ -398,14 +399,15 @@ int obtener_params(int sd,struct peticion *pet){
 
 void enviar_datos_get(int sd, struct peticion mi_peticion){
 
-     sendMessage(sd, mi_peticion.value_1, strlen(mi_peticion.value_1) + 1);
 
+    sendMessage(sd, mi_peticion.value_1, strlen(mi_peticion.value_1) + 1);
+        
     char buffer[MAX_V_VALUE2_SIZE];
     sprintf(buffer,"%d", mi_peticion.N_value2);
+
     sendMessage(sd, buffer, strlen(buffer) + 1);
 
-
-    // Si es 0, mandamos un array vacio
+    // Si es 0, mandamos un array vacio(por seguridad aunque no se puede recibir 0)
     if(mi_peticion.N_value2 == 0){
         strcpy(buffer, "[]");
     }else{
