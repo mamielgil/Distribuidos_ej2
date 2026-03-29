@@ -1,4 +1,5 @@
 #include "claves.h"
+#include "lines.h"
 #include <fcntl.h>        
 #include <sys/stat.h>
 #include <pthread.h>
@@ -8,7 +9,6 @@
 #include <netinet/in.h>
 #include <errno.h>
 #include <unistd.h>
-#include <lines.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -175,7 +175,6 @@ int main(int argc, char *argv[]){
         exit(1);
     }
 
-    struct peticion pet;
     pthread_attr_t thread_config;
     pthread_t thread_pool[NUM_THREADS];
     int pos = 0;

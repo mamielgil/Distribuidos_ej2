@@ -1,3 +1,4 @@
+#include "lines.h"
 #include <stdlib.h>
 #include "claves.h"
 #include <stdio.h>
@@ -7,7 +8,6 @@
 #include<sys/socket.h>
 #include<arpa/inet.h>
 #include <netinet/in.h>
-#include <lines.h>
 
 // Seleccionamos un tamaño grande para poder almacenar 
 // el vector V_value2
