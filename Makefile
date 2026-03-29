@@ -39,6 +39,8 @@ servidor-sock.o: servidor-sock.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 
+
+
 # Limpiar
 clean:
 	rm -f *.o *.so app-cliente servidor-sock

@@ -43,13 +43,6 @@ struct peticion {
     struct Paquete value3;
 };
 
-struct respuesta {
-  
-    // Queremos que el usuario solamente sepa sobre el estado de la operación
-    int resultado_operacion;
-   
-};
-
 int buffer_socket[NUM_THREADS];
 int n_elementos = 0;
 int pos_servicio = 0;
@@ -65,7 +58,6 @@ void enviar_datos_get(int sd, struct peticion mi_peticion);
 
 void* tratar_peticion(void* peticion_cliente){
     struct peticion mi_peticion;
-    struct respuesta respuesta_a_enviar;
 
     
     while(1){
@@ -100,25 +92,25 @@ void* tratar_peticion(void* peticion_cliente){
 
 
         // Aquí ya procesamos la petición
-
+        int resultado_operacion = -5;
         switch(mi_peticion.codigo_operacion){
 
             case 0:
 
                 // Caso de destroy
-                respuesta_a_enviar.resultado_operacion = destroy();
+                resultado_operacion = destroy();
                 break;
 
             case 1:
 
                 // Caso set_value
-                respuesta_a_enviar.resultado_operacion = set_value(mi_peticion.key,mi_peticion.value_1,mi_peticion.N_value2,mi_peticion.V_value2,mi_peticion.value3);
+                resultado_operacion = set_value(mi_peticion.key,mi_peticion.value_1,mi_peticion.N_value2,mi_peticion.V_value2,mi_peticion.value3);
                 break;
 
             case 2:
 
                 // Caso get_value
-                respuesta_a_enviar.resultado_operacion = get_value(mi_peticion.key,mi_peticion.value_1,&mi_peticion.N_value2,mi_peticion.V_value2,&mi_peticion.value3);
+                resultado_operacion = get_value(mi_peticion.key,mi_peticion.value_1,&mi_peticion.N_value2,mi_peticion.V_value2,&mi_peticion.value3);
                 
 
                 break;
@@ -126,37 +118,37 @@ void* tratar_peticion(void* peticion_cliente){
             case 3:
 
                 // Caso modify_value
-                respuesta_a_enviar.resultado_operacion = modify_value(mi_peticion.key,mi_peticion.value_1,mi_peticion.N_value2,mi_peticion.V_value2,mi_peticion.value3);
+                resultado_operacion = modify_value(mi_peticion.key,mi_peticion.value_1,mi_peticion.N_value2,mi_peticion.V_value2,mi_peticion.value3);
                 break;
 
             case 4:
 
                 // Caso delete_key 
-                respuesta_a_enviar.resultado_operacion = delete_key(mi_peticion.key);
+                resultado_operacion = delete_key(mi_peticion.key);
                 break;
             
             case 5:
 
                 // Caso exist
-                respuesta_a_enviar.resultado_operacion = exist(mi_peticion.key);
+                resultado_operacion = exist(mi_peticion.key);
                 break;
             default:
                 perror("El código de operación específicado no existe");
-                respuesta_a_enviar.resultado_operacion = -2;
+                resultado_operacion = -2;
                 break;
         }
 
         // Una vez preparada la respuesta, la envíamos
         char cod_ejecucion[3] = {'\0'};
-        sprintf(cod_ejecucion,"%d",respuesta_a_enviar.resultado_operacion);
+        sprintf(cod_ejecucion,"%d",resultado_operacion);
 
         sendMessage(sd,cod_ejecucion,strlen(cod_ejecucion) + 1);
 
         
 
-        if(mi_peticion.codigo_operacion == 2 && respuesta_a_enviar.resultado_operacion == 0){
+        if(mi_peticion.codigo_operacion == 2 && resultado_operacion == 0){
            // Enviamos los datos obtenidos solamente si estamos lidiando con el get
-            enviar_datos_get(sd,mi_peticion);
+            enviar_datos_get(sd, mi_peticion);
         }
         
         // Cerramos el socket al acabar con el cliente actual
@@ -356,7 +348,6 @@ int obtener_params(int sd,struct peticion *pet){
             if(readLine(sd,buffer,MAX_V_VALUE2_SIZE) < 0) return -1;
 
             // Ahora lo parseamos para ir guardando los valores en el struct
-
 
             char *tokens = strtok(buffer,"[],");
             int i = 0;
