@@ -2,7 +2,10 @@
 #include <stdio.h>
 #include <unistd.h>
 
+// ESTE CLIENTE OBTIENE CONTINUAMENTE UNA CLAVE CONCRETA
+
 int main() {
+
     printf("[LECTOR] Iniciando test de concurrencia...\n");
     
     char *key = "clave_compartida";
@@ -11,18 +14,15 @@ int main() {
     float V_value2[32];
     struct Paquete paquete;
 
-    for (int i = 0; i < 150; i++) {
-        if (exist(key) == 1) {
+    for (int i = 0; i < 10; i++) {
+        
             int res = get_value(key, value1, &N_value2, V_value2, &paquete);
             if (res == 0) {
-                printf("[LECTOR] Leído con éxito: %s\n", value1);
-            } else {
+                printf("[LECTOR] Leído con éxito con valor1: %s\n", value1);
+            } else if(res == -1) {
                 printf("[LECTOR] ERROR al leer la clave.\n");
             }
-        } else {
-            printf("[LECTOR] La clave aún no existe, esperando...\n");
-        }
-        usleep(8000); // Lee un poco más rápido de lo que el otro escribe
+            usleep(1000);
     }
     printf("[LECTOR] ¡Terminado!\n");
     return 0;

@@ -1,5 +1,6 @@
 #include "claves.h"
 #include <stdio.h>
+#include <string.h>
 
 
 // EN ESTE APP-CLIENTE SE COMPRUEBAN QUE LAS LLAMADAS FUNCIONEN LÓGICAMENTE, 
@@ -31,14 +32,37 @@ void tests1_3(){
     int test2_resultado = get_value(clave_test2,test2_value1,&test2_N_value2,test2_V_value2,&test2_paquete);
 
     printf("El resultado del test2 fue %d /RESULTADO ESPERADO 0\n", test2_resultado);
+    int test2_valid = 0;
     if(test2_resultado == 0){
-        printf("Información recuperada: clave: %s,value1: %s ,N_value2: %d, paquete x: %d y: %d z: %d\n","test1",test2_value1,test2_N_value2,test2_paquete.x,test2_paquete.y,test2_paquete.z);
-        printf("El array V_value2 tiene los siguiente valores:\n");
-        for(int i = 0; i < test2_N_value2; i++){
-            printf("%f ", test2_V_value2[i]);
+
+        if(strcmp(test2_value1, test1_value1) != 0){
+            printf("[ERROR] Test 2: El value1 recuperado no coincide.\n");
+            test2_valid = -1;
         }
+
+        if(test2_N_value2 != test1_N_value2){
+          printf("[ERROR] Test 2: El N_value2 recuperado no coincide.\n");
+           test2_valid = -1;
+        }
+
+        for(int i = 0; i < test2_N_value2; i++){
+            if(test2_V_value2[i] != test1_V_value2[i]){
+                printf("[ERROR] Test 2: El V_value2 recuperado no coincide.\n");
+                 test2_valid = -1;
+            }
+        }
+        if(test1_paquete.x != test2_paquete.x || test1_paquete.y != test2_paquete.y || test1_paquete.z != test2_paquete.z){
+            printf("[ERROR] Test 2: El value3 recuperado no coincide.\n");
+            test2_valid = -1;
+        }
+        
     }
-        printf("\n\n");
+    if(test2_resultado != 0 || test2_valid == -1) {
+        printf("[ERROR] Test 2 falló. Esperado 0, obtenido %d\n", test2_resultado);
+    } else {
+        printf("[OK] Test 2 superado.\n");
+    }
+    printf("\n");
 
     //Test 3. Intentamos hacer set sobre la clave anterior de forma que al existir
     // se espera un error
@@ -78,14 +102,37 @@ void tests4_8(){
 
     int test5_resultado = get_value(clave_test5,test5_value1,&test5_N_value2,test5_V_value2,&test5_paquete);
     printf("El resultado del test5 fue %d /RESULTADO ESPERADO 0\n", test5_resultado);
+    int test5_valid = 0;
     if(test5_resultado == 0){
-        printf("Información recuperada: clave: %s,value1: %s ,N_value2: %d, paquete x: %d y: %d z: %d\n","test1",test5_value1,test5_N_value2,test5_paquete.x,test5_paquete.y,test5_paquete.z);
-        printf("El array V_value2 tiene los siguiente valores:\n");
-        for(int i = 0; i < test5_N_value2; i++){
-            printf("%f ", test5_V_value2[i]);
+
+        if(strcmp(test5_value1, test4_value1) != 0){
+            printf("[ERROR] Test 5: El value1 recuperado no coincide.\n");
+            test5_valid = -1;
         }
+
+        if(test5_N_value2 != test4_N_value2){
+          printf("[ERROR] Test 5: El N_value2 recuperado no coincide.\n");
+           test5_valid = -1;
+        }
+
+        for(int i = 0; i < test5_N_value2; i++){
+            if(test5_V_value2[i] != test4_V_value2[i]){
+                printf("[ERROR] Test 5: El V_value2 recuperado no coincide.\n");
+                 test5_valid = -1;
+            }
+        }
+        if(test5_paquete.x != test4_paquete.x || test5_paquete.y != test4_paquete.y || test5_paquete.z != test4_paquete.z){
+            printf("[ERROR] Test 5: El value3 recuperado no coincide.\n");
+            test5_valid = -1;
+        }
+        
     }
-        printf("\n\n");
+    if(test5_resultado != 0 || test5_valid == -1) {
+        printf("[ERROR] Test 5 falló. Esperado 0, obtenido %d\n", test5_resultado);
+    } else {
+        printf("[OK] Test 5 superado.\n");
+    }
+    printf("\n");
 
 
     // Test 6. Intentamos modificar una clave que no existe
@@ -102,7 +149,7 @@ void tests4_8(){
     // Test 7. Intentamos modificar una clave podiendo un N_value2 fuera de rango
     char *clave_test7 = "clave1";
     char test7_value1[256] = "no_deberia_estar";
-    int test7_N_value2 = 78;
+    int test7_N_value2 = 33;
     float test7_V_value2[4] = {9, 1, 0, 0};
     struct Paquete test7_paquete = {-16, 67, 91};
 
