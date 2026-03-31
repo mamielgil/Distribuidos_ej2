@@ -175,7 +175,10 @@ int set_value(char *key, char *value1, int N_value2, float *V_value2, struct Paq
     // Guardamos el número en el buffer
     sprintf(buffer,"%d",N_value2);
 
-    sendMessage(sd, buffer, strlen(buffer) + 1);
+    if(sendMessage(sd, buffer, strlen(buffer) + 1) == -1){
+        close(sd);
+        return -2;
+    }
 
     // Enviamos V_value2( enviamos tantos floats como indica N_value2)
 
@@ -195,7 +198,10 @@ int set_value(char *key, char *value1, int N_value2, float *V_value2, struct Paq
 
     // Una vez ya obtenido el buffer, lo enviamos
 
-    sendMessage(sd,buffer, strlen(buffer) + 1);
+    if(sendMessage(sd,buffer, strlen(buffer) + 1) == -1){
+        close(sd);
+        return -2;
+    }
 
     // Por último enviamos value3 en formato de array de tres dígitos
 
@@ -203,7 +209,10 @@ int set_value(char *key, char *value1, int N_value2, float *V_value2, struct Paq
 
     sprintf(buffer,"[%d,%d,%d]",value3.x,value3.y,value3.z);
 
-    sendMessage(sd,buffer, strlen(buffer) + 1);
+    if(sendMessage(sd,buffer, strlen(buffer) + 1) == -1){
+        close(sd);
+        return -2;
+    }
 
     // Una vez enviado todo, esperamos a la respuesta del servidor
 
@@ -389,7 +398,10 @@ int modify_value(char *key, char *value1, int N_value2, float *V_value2, struct 
     // Guardamos el número en el buffer
     sprintf(buffer,"%d",N_value2);
 
-    sendMessage(sd, buffer, strlen(buffer) + 1);
+    if(sendMessage(sd, buffer, strlen(buffer) + 1) == -1){
+        close(sd);
+        return -2;
+    }
 
     // Enviamos V_value2( enviamos tantos floats como indica N_value2)
 
@@ -409,7 +421,10 @@ int modify_value(char *key, char *value1, int N_value2, float *V_value2, struct 
 
     // Una vez ya obtenido el buffer, lo enviamos
 
-    sendMessage(sd,buffer, strlen(buffer) + 1);
+    if(sendMessage(sd,buffer, strlen(buffer) + 1) == -1){
+        close(sd);
+        return -2;
+    }
 
     // Por último enviamos value3 en formato de array de tres dígitos
 
@@ -417,7 +432,10 @@ int modify_value(char *key, char *value1, int N_value2, float *V_value2, struct 
 
     sprintf(buffer,"[%d,%d,%d]",value3.x,value3.y,value3.z);
 
-    sendMessage(sd,buffer, strlen(buffer) + 1);
+    if(sendMessage(sd,buffer, strlen(buffer) + 1) == -1){
+        close(sd);
+        return -2;
+    }
 
     // Una vez enviado todo, esperamos a la respuesta del servidor
 
@@ -445,12 +463,18 @@ int delete_key(char *key){
 
     // Ahora enviamos el código de operación
     char cod_op[3] = "4"; 
-    sendMessage(sd,cod_op,strlen(cod_op) + 1);
+    
+    if(sendMessage(sd,cod_op,strlen(cod_op) + 1) == -1){
+        close(sd);
+        return -2;
+    }
 
     // Ahora enviamos la key a borrar
     char buffer[MAX_V_VALUE2_SIZE];
     strcpy(buffer,key);
-    sendMessage(sd,buffer,strlen(buffer) + 1);
+    if(sendMessage(sd,buffer,strlen(buffer) + 1) == -1){
+        return -2;
+    }
 
     // Una vez enviada la key, recibimos el código de ejecucion del server
     strcpy(buffer, "");
@@ -478,12 +502,19 @@ int exist(char *key){
 
     // Ahora enviamos el código de operación
     char cod_op[3] = "5"; 
-    sendMessage(sd,cod_op,strlen(cod_op) + 1);
+    if(sendMessage(sd,cod_op,strlen(cod_op) + 1) == -1){
+        close(sd);
+        return -2;
+    }
 
     // Ahora enviamos la key a borrar
     char buffer[MAX_V_VALUE2_SIZE];
     strcpy(buffer,key);
-    sendMessage(sd,buffer,strlen(buffer) + 1);
+    
+    if(sendMessage(sd,buffer,strlen(buffer) + 1) == -1){
+        close(sd);
+        return -2;
+    }
 
     // Una vez enviada la key, recibimos el código de ejecucion del server
     strcpy(buffer, "");
