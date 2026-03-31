@@ -25,10 +25,13 @@ int exist(char *key){
     char path[512];
     snprintf(path, sizeof(path), "./clientes/%s", key);
     DIR *dir;
-    if ((dir = opendir("./clientes")) == NULL && errno == ENOENT){
-        mkdir("./clientes", 0755);
-        return 0;
+    if ((dir = opendir("./clientes")) == NULL) {
+        if (errno == ENOENT) {
+            mkdir("./clientes", 0755);
+        }
+        return 0; // Retornamos 0 en cualquier caso de error al abrir
     }
+
     closedir(dir);
 
     // Ahora para comprobar si existe el archivo, vamos a realizar una lectura. Por lo tanto,
@@ -203,7 +206,7 @@ int destroy(void){
         // Abrimos el archivo para poder hacer un lock mientras es borrado
         int fd;
         if((fd = open(path,O_RDONLY,0666)) == -1){
-            // El archivo no se pudo abrir correctamente
+            // El archivo no se pudo abrir correctamente, al no poder vaciar el directorio completo asumimos que hubo un error
             return -1;
         }
         if(flock(fd,LOCK_EX) == -1){

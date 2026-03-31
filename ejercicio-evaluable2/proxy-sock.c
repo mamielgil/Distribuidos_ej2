@@ -132,6 +132,13 @@ int destroy(){
 }
 
 int set_value(char *key, char *value1, int N_value2, float *V_value2, struct Paquete value3){
+    
+    // Comprobamos que el N_value2 sea válido y sino ni inicializamos la conexión
+    if(N_value2 > 32 || N_value2 <= 0){
+        // El error de N_value2 es incorrecto
+        return -1;
+    }
+    
     // Enviamos todos los parámetros
     int sd = crear_conexion_server();
 
@@ -162,11 +169,6 @@ int set_value(char *key, char *value1, int N_value2, float *V_value2, struct Paq
     }
 
     // Enviamos el N_value2
-    if(N_value2 > 32 || N_value2 <= 0){
-        // El error de N_value2 es incorrecto
-        close(sd);
-        return -1;
-    }
     char buffer[MAX_V_VALUE2_SIZE];
     strcpy(buffer,"");
 
@@ -345,6 +347,12 @@ int get_value(char *key, char *value1, int *N_value2, float *V_value2, struct Pa
 
 int modify_value(char *key, char *value1, int N_value2, float *V_value2, struct Paquete value3){
      
+    // Comprobamos el valor de N_value2 al inicio y si no es válido evitamos conectarnos al servidor
+    if(N_value2 > 32 || N_value2 <= 0){
+        // El error de N_value2 es incorrecto
+        return -1;
+    }
+
     // Enviamos todos los parámetros
     int sd = crear_conexion_server();
 
@@ -375,11 +383,6 @@ int modify_value(char *key, char *value1, int N_value2, float *V_value2, struct 
     }
 
     // Enviamos el N_value2
-    if(N_value2 > 32 || N_value2 <= 0){
-        // El error de N_value2 es incorrecto
-        close(sd);
-        return -1;
-    }
     char buffer[MAX_V_VALUE2_SIZE];
     strcpy(buffer,"");
 
