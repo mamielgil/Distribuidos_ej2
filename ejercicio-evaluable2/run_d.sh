@@ -3,9 +3,9 @@ make
 
 
 # Borramos todas las claves generadas para ejecutar los tests desde 0
-cd clientes
-rm *
-cd ..
+if [ -d "clientes" ]; then
+    rm -rf clientes/*
+fi
 
 # Exportamos las variables de entorno requeridas
 export PORT_TUPLAS=3000

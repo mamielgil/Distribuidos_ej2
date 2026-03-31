@@ -229,6 +229,7 @@ int main(int argc, char *argv[]){
     // sus recursos de forma automática. 
     pthread_attr_init(&thread_config);
     pthread_mutex_init(&mi_mutex,NULL);
+    pthread_mutex_init(&mfin, NULL);
     pthread_cond_init(&no_lleno,NULL);
     pthread_cond_init(&no_vacio,NULL);
 

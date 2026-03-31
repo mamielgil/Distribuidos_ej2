@@ -102,7 +102,7 @@ int crear_conexion_server(){
 int destroy(){
 
     int sd = crear_conexion_server();
-    if( sd == -1){
+    if( sd < 0){
         // Hubo algún error durante la creación del socket
         return -2;
     }
@@ -135,7 +135,7 @@ int set_value(char *key, char *value1, int N_value2, float *V_value2, struct Paq
     // Enviamos todos los parámetros
     int sd = crear_conexion_server();
 
-    if(sd == -1){
+    if(sd < 0){
         // Hubo algún error durante la creación de la conexión
         return -2;
     }
@@ -222,7 +222,7 @@ int get_value(char *key, char *value1, int *N_value2, float *V_value2, struct Pa
     
     // En el caso del get, solamente enviamos el código de operación y la key y recibimos los valores
     int sd = crear_conexion_server();
-    if(sd == -1){
+    if(sd < 0){
         // Hubo algún error durante la creación del socket
         return -2;
     }
@@ -348,7 +348,7 @@ int modify_value(char *key, char *value1, int N_value2, float *V_value2, struct 
     // Enviamos todos los parámetros
     int sd = crear_conexion_server();
 
-    if(sd == -1){
+    if(sd < 0){
         // Hubo algún error durante la creación de la conexión
         return -2;
     }
@@ -436,7 +436,7 @@ int delete_key(char *key){
     // En el delete_key solamente necesitamos enviar la key
 
     int sd = crear_conexion_server();
-    if(sd == -1){
+    if(sd < 0){
         return -2;
     }
 
@@ -469,7 +469,7 @@ int exist(char *key){
     // En el exist solamente necesitamos enviar la key
 
     int sd = crear_conexion_server();
-    if(sd == -1){
+    if(sd < 0){
         return -2;
     }
 

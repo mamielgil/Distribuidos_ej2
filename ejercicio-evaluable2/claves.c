@@ -53,10 +53,16 @@ int exist(char *key){
 
 
 int set_value(char *key, char *value1, int N_value2, float *V_value2, struct Paquete value3){
+
+    // Nos aseguramos de que el directorio exista antes de intentar crear el archivo
+    if (mkdir("./clientes", 0755) == -1 && errno != EEXIST) {
+        // Solamente damos error si no se pudo crear el directorio o abrirlo por un error distinto a que ya existía
+        return -1;
+    }
+
     char path[512];
     snprintf(path, sizeof(path), "./clientes/%s", key);
 
-   
     int fd;
     if((fd = open(path, O_CREAT | O_WRONLY | O_APPEND | O_EXCL, 0666)) < 0){
         // Error porque la key ya existe o porque no se pudo abrir el archivo
@@ -176,8 +182,14 @@ int destroy(void){
     DIR * direct = opendir("./clientes");
 
     if(direct == NULL){
-        // El directorio no se pudo abrir
-        return -1;
+        
+        if(errno == ENOENT){
+            // El directorio no existe por lo que asumimos que está borrado correctamente
+            return 0;
+        }else{
+            // El directorio no se pudo abrir
+            return -1;
+        }
     }
 
     struct dirent * entry;
